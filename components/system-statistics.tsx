@@ -1,11 +1,10 @@
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Info } from "lucide-react"
 
-// Comprehensive system metric descriptions
+// Comprehensive system metric descriptions with case-insensitive mapping
 const systemMetricDescriptions: Record<
   string,
   { fullName: string; description: string; maxValue?: number; isPercentage?: boolean }
@@ -63,21 +62,115 @@ const systemMetricDescriptions: Record<
     description: "Total lines of code in the system",
     maxValue: 100000,
   },
+  NSM: {
+    fullName: "Number of Static Members",
+    description: "Number of static members (attributes methods)",
+    maxValue: 1000,
+  },
+
+  // The Powerful 6 metrics
+  NOA: {
+    fullName: "Number of Attributes",
+    description: "Number of attributes in a class",
+    maxValue: 100,
+  },
+  MPC: {
+    fullName: "Message Passing Coupling",
+    description: "Sum of method calls inside all methods",
+    maxValue: 100,
+  },
+  DAC: {
+    fullName: "Data Abstraction Coupling",
+    description: "Number of fields that refer to other classes defined in the system",
+    maxValue: 50,
+  },
+  LCOM4: {
+    fullName: "Lack of Cohesion in Methods 4",
+    description: "Number of connected elements in the dependency graph of the class",
+    maxValue: 10,
+  },
+  LCC: {
+    fullName: "Loose Class Cohesion",
+    description: "Measures how well the methods of a class are related to each other",
+    maxValue: 1,
+    isPercentage: true,
+  },
+
+  // The Other 14 metrics
+  DIT: {
+    fullName: "Depth of Inheritance Tree",
+    description: "Effectively number of parents that led to this class",
+    maxValue: 10,
+  },
+  CBO: {
+    fullName: "Coupling Between Objects",
+    description: "The number of classes this class is coupled to",
+    maxValue: 50,
+  },
+  NOP: {
+    fullName: "Number of Parameters",
+    description: "Average number of parameters in a class's methods",
+    maxValue: 10,
+  },
+  NORM: {
+    fullName: "Number of Overridden Methods",
+    description: "Number of overridden / implemented methods",
+    maxValue: 20,
+  },
+  NOLM: {
+    fullName: "Number of Overloaded Methods",
+    description: "Number of overloaded methods",
+    maxValue: 20,
+  },
+  MIT: {
+    fullName: "Methods Inherited",
+    description: "Number of methods inherited overall",
+    maxValue: 50,
+  },
+  CF: {
+    fullName: "Coupling Factor",
+    description: "Coupling factor metric (check OO Metrics doc for definition)",
+    maxValue: 1,
+    isPercentage: true,
+  },
+  DAM: {
+    fullName: "Data Access Metric",
+    description: "#protectedA + #privateA / #totalA",
+    maxValue: 1,
+    isPercentage: true,
+  },
+  ER: {
+    fullName: "Exception Ratio",
+    description: "#handledE / #thrownE",
+    maxValue: 1,
+    isPercentage: true,
+  },
+  SIX: {
+    fullName: "Specialization Index",
+    description: "DIT * NORM / NOM",
+    maxValue: 1,
+    isPercentage: true,
+  },
+  RFC: {
+    fullName: "Response for Class",
+    description: "Number of methods a class can call, needs adjustments in the parser for 100% accuracy",
+    maxValue: 100,
+  },
 
   // Complexity Distribution
-  lowComplexity: {
+  LOWCOMPLEXITY: {
     fullName: "Low Complexity Methods",
     description: "Methods with complexity 1-5",
     maxValue: 100,
     isPercentage: true,
   },
-  mediumComplexity: {
+  MEDIUMCOMPLEXITY: {
     fullName: "Medium Complexity Methods",
     description: "Methods with complexity 6-10",
     maxValue: 100,
     isPercentage: true,
   },
-  highComplexity: {
+  HIGHCOMPLEXITY: {
     fullName: "High Complexity Methods",
     description: "Methods with complexity 11+",
     maxValue: 100,
@@ -85,24 +178,51 @@ const systemMetricDescriptions: Record<
   },
 
   // Visibility Distribution
-  publicMethods: {
+  PUBLICMETHODS: {
     fullName: "Public Methods",
     description: "Percentage of public methods",
     maxValue: 100,
     isPercentage: true,
   },
-  privateMethods: {
+  PRIVATEMETHODS: {
     fullName: "Private Methods",
     description: "Percentage of private methods",
     maxValue: 100,
     isPercentage: true,
   },
-  protectedMethods: {
+  PROTECTEDMETHODS: {
     fullName: "Protected Methods",
     description: "Percentage of protected methods",
     maxValue: 100,
     isPercentage: true,
   },
+}
+
+// Function to normalize metric keys (case-insensitive)
+const normalizeMetricKey = (key: string): string => {
+  return key.toUpperCase()
+}
+
+// Function to get metric info with case-insensitive lookup
+const getSystemMetricInfo = (key: string) => {
+  const normalizedKey = normalizeMetricKey(key)
+  return (
+    systemMetricDescriptions[normalizedKey] || {
+      fullName: formatMetricName(key),
+      description: `${key} metric`,
+      maxValue: 100,
+      isPercentage: false,
+    }
+  )
+}
+
+// Helper function to format metric names
+const formatMetricName = (key: string): string => {
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/_/g, " ")
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim()
 }
 
 interface SystemStatisticsProps {
@@ -128,6 +248,7 @@ export default function SystemStatistics({ view, projectData }: SystemStatistics
     }
   }
 
+  // Enhanced quality metrics extraction with case-insensitive handling
   const extractQualityMetrics = (metrics: any) => {
     const qualityMetrics = []
 
@@ -136,36 +257,47 @@ export default function SystemStatistics({ view, projectData }: SystemStatistics
       return []
     }
 
-    // Standard quality metrics
-    const standardQualityKeys = ["MHF", "AHF", "PF", "U", "S"]
-    standardQualityKeys.forEach((key) => {
-      if (metrics[key] !== undefined && typeof metrics[key] === "number") {
-        qualityMetrics.push({
-          name: key,
-          value: metrics[key],
-          description: systemMetricDescriptions[key]?.description || `${key} metric`,
-          fullName: systemMetricDescriptions[key]?.fullName || key,
-          isPercentage: systemMetricDescriptions[key]?.isPercentage || false,
-        })
-      }
-    })
+    // The Powerful 6 metrics (case-insensitive)
+    const powerfulSix = ["NOM", "NOA", "MPC", "DAC", "LCOM4", "LCC"]
 
-    // Add any other metrics that might be quality-related
+    // The Other 14 metrics (case-insensitive)
+    const otherFourteen = [
+      "DIT",
+      "NOC",
+      "CBO",
+      "TLOC",
+      "NSM",
+      "NOP",
+      "NORM",
+      "NOLM",
+      "MIT",
+      "CF",
+      "DAM",
+      "ER",
+      "PF",
+      "SIX",
+      "RFC",
+    ]
+
+    // Combine all metrics
+    const allMetrics = [...powerfulSix, ...otherFourteen]
+
+    // Check for exact matches first, then case-insensitive matches
     Object.keys(metrics).forEach((key) => {
-      if (
-        !standardQualityKeys.includes(key) &&
-        typeof metrics[key] === "number" &&
-        (key.toLowerCase().includes("quality") ||
-          key.toLowerCase().includes("factor") ||
-          key.toLowerCase().includes("ratio"))
-      ) {
-        qualityMetrics.push({
-          name: key,
-          value: metrics[key],
-          description: systemMetricDescriptions[key]?.description || `${key} quality metric`,
-          fullName: systemMetricDescriptions[key]?.fullName || key,
-          isPercentage: typeof metrics[key] === "number" && metrics[key] <= 1,
-        })
+      if (typeof metrics[key] === "number") {
+        const normalizedKey = normalizeMetricKey(key)
+        if (allMetrics.includes(normalizedKey)) {
+          const metricInfo = getSystemMetricInfo(key)
+          qualityMetrics.push({
+            name: normalizedKey,
+            originalKey: key,
+            value: metrics[key],
+            description: metricInfo.description,
+            fullName: metricInfo.fullName,
+            aspect: "Quality",
+            isPowerfulSix: powerfulSix.includes(normalizedKey),
+          })
+        }
       }
     })
 
@@ -185,18 +317,20 @@ export default function SystemStatistics({ view, projectData }: SystemStatistics
       Object.keys(metrics.complexity).forEach((key) => {
         const value = metrics.complexity[key]
         if (typeof value === "number") {
+          const metricInfo = getSystemMetricInfo(key)
           complexityMetrics.push({
-            name: key,
+            name: normalizeMetricKey(key),
+            originalKey: key,
             value: value,
-            description: systemMetricDescriptions[key]?.description || `${key} complexity distribution`,
-            fullName: systemMetricDescriptions[key]?.fullName || formatMetricName(key),
+            description: metricInfo.description,
+            fullName: metricInfo.fullName,
             isPercentage: true,
           })
         }
       })
     }
 
-    // Look for complexity-related metrics at the top level
+    // Look for complexity-related metrics at the top level (case-insensitive)
     Object.keys(metrics).forEach((key) => {
       if (
         typeof metrics[key] === "number" &&
@@ -204,11 +338,13 @@ export default function SystemStatistics({ view, projectData }: SystemStatistics
           key.toLowerCase().includes("wmc") ||
           key.toLowerCase().includes("cc"))
       ) {
+        const metricInfo = getSystemMetricInfo(key)
         complexityMetrics.push({
-          name: key,
+          name: normalizeMetricKey(key),
+          originalKey: key,
           value: metrics[key],
-          description: systemMetricDescriptions[key]?.description || `${key} complexity metric`,
-          fullName: systemMetricDescriptions[key]?.fullName || formatMetricName(key),
+          description: metricInfo.description,
+          fullName: metricInfo.fullName,
           isPercentage: false,
         })
       }
@@ -231,18 +367,20 @@ export default function SystemStatistics({ view, projectData }: SystemStatistics
       Object.keys(metrics.visibility).forEach((key) => {
         const value = metrics.visibility[key]
         if (typeof value === "number") {
+          const metricInfo = getSystemMetricInfo(key)
           visibilityMetrics.push({
-            name: key,
+            name: normalizeMetricKey(key),
+            originalKey: key,
             value: value,
-            description: systemMetricDescriptions[key]?.description || `${key} visibility distribution`,
-            fullName: systemMetricDescriptions[key]?.fullName || formatMetricName(key),
+            description: metricInfo.description,
+            fullName: metricInfo.fullName,
             isPercentage: true,
           })
         }
       })
     }
 
-    // Look for visibility-related metrics at the top level
+    // Look for visibility-related metrics at the top level (case-insensitive)
     Object.keys(metrics).forEach((key) => {
       if (
         typeof metrics[key] === "number" &&
@@ -251,11 +389,13 @@ export default function SystemStatistics({ view, projectData }: SystemStatistics
           key.toLowerCase().includes("protected") ||
           key.toLowerCase().includes("visibility"))
       ) {
+        const metricInfo = getSystemMetricInfo(key)
         visibilityMetrics.push({
-          name: key,
+          name: normalizeMetricKey(key),
+          originalKey: key,
           value: metrics[key],
-          description: systemMetricDescriptions[key]?.description || `${key} visibility metric`,
-          fullName: systemMetricDescriptions[key]?.fullName || formatMetricName(key),
+          description: metricInfo.description,
+          fullName: metricInfo.fullName,
           isPercentage: true,
         })
       }
@@ -309,53 +449,42 @@ export default function SystemStatistics({ view, projectData }: SystemStatistics
     { name: "Private", value: 29, description: "Private methods", fullName: "Private Methods", isPercentage: true },
   ]
 
-  // Helper function to format metric names
-  const formatMetricName = (key: string): string => {
-    return key
-      .replace(/([A-Z])/g, " $1")
-      .replace(/_/g, " ")
-      .replace(/^./, (str) => str.toUpperCase())
-      .trim()
-  }
-
   const currentMetrics = getMetricsForView()
 
+  // Enhanced metric card rendering with hover descriptions
   const renderMetricCard = (metric: any) => {
     // Ensure metric has required properties
     if (!metric || typeof metric.value !== "number") {
       return null
     }
 
-    const displayValue = metric.isPercentage
-      ? `${metric.value.toFixed(1)}%`
-      : metric.value % 1 !== 0
-        ? metric.value.toFixed(2)
-        : metric.value.toString()
-
-    const progressValue = metric.isPercentage
-      ? metric.value
-      : Math.min(100, (metric.value / (systemMetricDescriptions[metric.name]?.maxValue || 100)) * 100)
+    const displayValue = metric.value % 1 !== 0 ? metric.value.toFixed(2) : metric.value.toString()
 
     return (
-      <div key={metric.name} className="space-y-2">
-        <div className="flex items-center gap-1">
-          <div className="text-sm font-medium">{metric.fullName || metric.name}</div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-muted-foreground">
-                  <Info className="h-3 w-3" />
+      <TooltipProvider key={metric.name}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="space-y-2 p-3 rounded-lg border hover:border-primary/50 transition-all duration-200 cursor-help hover:shadow-md">
+              <div className="flex items-center gap-1">
+                <div className="text-sm font-medium font-mono flex items-center gap-2">
+                  {metric.name}
+                  {metric.isPowerfulSix && (
+                    <span className="text-xs bg-primary text-primary-foreground px-1.5 py-0.5 rounded">Powerful 6</span>
+                  )}
                 </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{metric.description || "No description available"}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-        <div className="text-2xl font-bold text-primary">{displayValue}</div>
-        <Progress value={Math.max(0, Math.min(100, progressValue))} className="h-2" />
-      </div>
+                <Info className="h-3 w-3 text-muted-foreground" />
+              </div>
+              <div className="text-2xl font-bold text-primary">{displayValue}</div>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <div className="space-y-1">
+              <p className="font-medium">{metric.fullName}</p>
+              <p className="text-sm">{metric.description}</p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     )
   }
 
@@ -374,35 +503,58 @@ export default function SystemStatistics({ view, projectData }: SystemStatistics
     }
 
     return (
-      <div key={metric.name} className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-medium">{metric.fullName || metric.name}</div>
-          <div className="text-sm text-muted-foreground">{percentage.toFixed(0)}%</div>
-        </div>
-        <div className="h-2 w-full rounded-full bg-muted">
-          <div
-            className={`h-2 rounded-full ${getColor()}`}
-            style={{ width: `${Math.max(0, Math.min(100, percentage))}%` }}
-          />
-        </div>
-      </div>
+      <TooltipProvider key={metric.name}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="space-y-2 cursor-help">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium flex items-center gap-1">
+                  {metric.fullName || metric.name}
+                  <Info className="h-3 w-3 text-muted-foreground" />
+                </div>
+                <div className="text-sm text-muted-foreground">{percentage.toFixed(0)}%</div>
+              </div>
+              <div className="h-2 w-full rounded-full bg-muted">
+                <div
+                  className={`h-2 rounded-full ${getColor()}`}
+                  style={{ width: `${Math.max(0, Math.min(100, percentage))}%` }}
+                />
+              </div>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <div className="space-y-1">
+              <p className="font-medium">{metric.fullName}</p>
+              <p className="text-sm">{metric.description}</p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     )
   }
 
+  // Add no-data state for each view
   if (view === "quality") {
     return (
       <Card className="w-full border-2 shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle>Quality Metrics</CardTitle>
-          <CardDescription>Object-oriented quality metrics for the entire codebase</CardDescription>
+          <CardDescription>
+            Object-oriented quality metrics for the entire codebase (hover for descriptions)
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {currentMetrics.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-5">
+            <div className="grid gap-4 md:grid-cols-5">
               {currentMetrics.map((metric) => renderMetricCard(metric)).filter(Boolean)}
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">No quality metrics found in the project data.</div>
+            <div className="text-center py-8">
+              <div className="text-muted-foreground">
+                <p>No quality metrics found in the project data.</p>
+                <p className="text-sm mt-2">Upload a JSON file with systemMetrics to view quality metrics.</p>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -415,8 +567,8 @@ export default function SystemStatistics({ view, projectData }: SystemStatistics
         <CardTitle>{view === "complexity" ? "Complexity Distribution" : "Method Visibility"}</CardTitle>
         <CardDescription>
           {view === "complexity"
-            ? "Distribution of methods by cyclomatic complexity"
-            : "Distribution of methods by visibility modifier"}
+            ? "Distribution of methods by cyclomatic complexity (hover for descriptions)"
+            : "Distribution of methods by visibility modifier (hover for descriptions)"}
         </CardDescription>
       </CardHeader>
       <CardContent>

@@ -14,32 +14,37 @@ export default function StatisticsView({ projectData }: StatisticsViewProps) {
   const getSystemOverviewMetrics = () => {
     const metrics = []
 
-    // Standard metrics with fallbacks
+    if (!projectData || !projectData.systemMetrics) {
+      return []
+    }
+
+    // Standard metrics with dynamic extraction
     const standardMetrics = [
-      { key: "NOC", label: "Total Classes", fallback: 67 },
-      { key: "NOI", label: "Total Interfaces", fallback: 23 },
-      { key: "NOM", label: "Total Methods", fallback: 812 },
-      { key: "TLOC", label: "Total Lines of Code", fallback: 5243 },
+      { key: "NOC", label: "Total Classes" },
+      { key: "NOI", label: "Total Interfaces" },
+      { key: "NOM", label: "Total Methods" },
+      { key: "TLOC", label: "Total Lines of Code" },
+      { key: "NSM", label: "Total Static Members" },
     ]
 
-    standardMetrics.forEach(({ key, label, fallback }) => {
+    standardMetrics.forEach(({ key, label }) => {
       const value = systemMetrics[key]
-      metrics.push({
-        name: label,
-        value: typeof value === "number" && !isNaN(value) ? value : fallback,
-      })
+      if (typeof value === "number" && !isNaN(value)) {
+        metrics.push({
+          name: label,
+          value: value,
+        })
+      }
     })
 
     // Add any additional numeric metrics found in systemMetrics
     if (typeof systemMetrics === "object" && systemMetrics !== null) {
       Object.keys(systemMetrics).forEach((key) => {
         if (
-          !["NOC", "NOI", "NOM", "TLOC", "quality", "complexity", "visibility"].includes(key) &&
+          !["NOC", "NOI", "NOM", "TLOC", "NSM", "quality", "complexity", "visibility"].includes(key) &&
           typeof systemMetrics[key] === "number" &&
-          !isNaN(systemMetrics[key]) &&
-          systemMetrics[key] > 1
+          !isNaN(systemMetrics[key])
         ) {
-          // Exclude ratios/percentages
           metrics.push({
             name: formatMetricName(key),
             value: systemMetrics[key],
@@ -51,35 +56,44 @@ export default function StatisticsView({ projectData }: StatisticsViewProps) {
     return metrics
   }
 
-  // Dynamic bug risk distribution
+  // Enhanced bug risk distribution extraction
   const getBugRiskDistribution = () => {
     // Check if quality data exists in the expected format
     if (systemMetrics.quality && typeof systemMetrics.quality === "object") {
       const quality = systemMetrics.quality
       const distribution = []
 
-      // Handle different possible structures
-      if (quality.highRisk !== undefined) {
-        distribution.push({
-          risk: "High Risk (>60%)",
-          percentage: typeof quality.highRisk === "object" ? quality.highRisk.value || 0 : quality.highRisk || 0,
-          count: typeof quality.highRisk === "object" ? quality.highRisk.NOC || 0 : 0,
-        })
-      }
-
-      if (quality.mediumRisk !== undefined) {
-        distribution.push({
-          risk: "Medium Risk (30-60%)",
-          percentage: typeof quality.mediumRisk === "object" ? quality.mediumRisk.value || 0 : quality.mediumRisk || 0,
-          count: typeof quality.mediumRisk === "object" ? quality.mediumRisk.NOC || 0 : 0,
-        })
-      }
-
-      if (quality.lowRisk !== undefined) {
+      // Handle lowRisk, mediumRisk, highRisk with exact structure
+      if (quality.lowRisk && typeof quality.lowRisk === "object") {
         distribution.push({
           risk: "Low Risk (<30%)",
-          percentage: typeof quality.lowRisk === "object" ? quality.lowRisk.value || 0 : quality.lowRisk || 0,
-          count: typeof quality.lowRisk === "object" ? quality.lowRisk.NOC || 0 : 0,
+          percentage: quality.lowRisk.value || 0,
+          count: quality.lowRisk.noc || quality.lowRisk.NOC || 0,
+          color: "bg-green-500",
+          bgColor: "bg-green-50 dark:bg-green-900/20",
+          borderColor: "border-green-200 dark:border-green-800",
+        })
+      }
+
+      if (quality.mediumRisk && typeof quality.mediumRisk === "object") {
+        distribution.push({
+          risk: "Medium Risk (30-60%)",
+          percentage: quality.mediumRisk.value || 0,
+          count: quality.mediumRisk.noc || quality.mediumRisk.NOC || 0,
+          color: "bg-amber-500",
+          bgColor: "bg-amber-50 dark:bg-amber-900/20",
+          borderColor: "border-amber-200 dark:border-amber-800",
+        })
+      }
+
+      if (quality.highRisk && typeof quality.highRisk === "object") {
+        distribution.push({
+          risk: "High Risk (>60%)",
+          percentage: quality.highRisk.value || 0,
+          count: quality.highRisk.noc || quality.highRisk.NOC || 0,
+          color: "bg-red-500",
+          bgColor: "bg-red-50 dark:bg-red-900/20",
+          borderColor: "border-red-200 dark:border-red-800",
         })
       }
 
@@ -88,40 +102,8 @@ export default function StatisticsView({ projectData }: StatisticsViewProps) {
       }
     }
 
-    // Check for alternative formats
-    if (systemMetrics.bugRisk || systemMetrics.riskDistribution) {
-      const riskData = systemMetrics.bugRisk || systemMetrics.riskDistribution
-      const distribution = []
-
-      if (typeof riskData === "object" && riskData !== null) {
-        Object.keys(riskData).forEach((key) => {
-          const value = riskData[key]
-          if (value !== null && value !== undefined) {
-            distribution.push({
-              risk: formatRiskLevel(key),
-              percentage:
-                typeof value === "object"
-                  ? value.percentage || value.value || 0
-                  : typeof value === "number"
-                    ? value
-                    : 0,
-              count: typeof value === "object" ? value.count || value.NOC || 0 : 0,
-            })
-          }
-        })
-      }
-
-      if (distribution.length > 0) {
-        return distribution
-      }
-    }
-
-    // Default fallback
-    return [
-      { risk: "High Risk (>60%)", percentage: 18, count: 12 },
-      { risk: "Medium Risk (30-60%)", percentage: 37, count: 25 },
-      { risk: "Low Risk (<30%)", percentage: 45, count: 30 },
-    ]
+    // Return empty array if no valid data found
+    return []
   }
 
   // Helper function to format metric names
@@ -134,16 +116,30 @@ export default function StatisticsView({ projectData }: StatisticsViewProps) {
       .trim()
   }
 
-  // Helper function to format risk levels
-  const formatRiskLevel = (key: string): string => {
-    if (key.toLowerCase().includes("high")) return "High Risk (>60%)"
-    if (key.toLowerCase().includes("medium")) return "Medium Risk (30-60%)"
-    if (key.toLowerCase().includes("low")) return "Low Risk (<30%)"
-    return formatMetricName(key)
-  }
-
   const systemOverviewMetrics = getSystemOverviewMetrics()
   const bugDistribution = getBugRiskDistribution()
+
+  // Add a no-data state
+  if (!projectData) {
+    return (
+      <div className="w-full space-y-6">
+        <Card className="w-full border-2 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle>No Data Available</CardTitle>
+            <CardDescription>Please upload a JSON file or provide a GitHub link to view system metrics</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <div className="text-muted-foreground">
+                <p>Upload a JSON file containing your project metrics to get started.</p>
+                <p className="text-sm mt-2">The JSON should contain systemMetrics and classes data.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="w-full space-y-6">
@@ -183,43 +179,58 @@ export default function StatisticsView({ projectData }: StatisticsViewProps) {
         </CardContent>
       </Card>
 
+      {/* Enhanced Bug Risk Distribution */}
       <Card className="w-full border-2 shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle>Bug Risk Distribution</CardTitle>
-          <CardDescription>Distribution of classes by bug probability</CardDescription>
+          <CardDescription>Distribution of classes by bug probability with detailed breakdown</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
-            {bugDistribution && bugDistribution.length > 0 ? (
-              bugDistribution.map((item, index) => (
-                <div key={`${item.risk}-${index}`} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">{item.risk}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {item.count > 0 ? `${item.count} classes ` : ""}(
-                      {typeof item.percentage === "number" ? item.percentage.toFixed(0) : 0}%)
-                    </div>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-muted">
-                    <div
-                      className={`h-2 rounded-full ${
-                        item.risk.includes("High")
-                          ? "bg-red-500"
-                          : item.risk.includes("Medium")
-                            ? "bg-amber-500"
-                            : "bg-green-500"
-                      }`}
-                      style={{
-                        width: `${Math.min(100, Math.max(0, typeof item.percentage === "number" ? item.percentage : 0))}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-sm text-muted-foreground">No risk distribution data available.</div>
-            )}
-          </div>
+          {bugDistribution && bugDistribution.length > 0 ? (
+            <div className="space-y-4">
+              {/* Risk Category Cards */}
+              <div className="grid gap-4 md:grid-cols-3">
+                {bugDistribution.map((item, index) => (
+                  <Card key={`${item.risk}-${index}`} className={`border-2 ${item.borderColor} ${item.bgColor}`}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{item.risk}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Classes</span>
+                          <span className="text-2xl font-bold">{item.count}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Percentage</span>
+                          <span className="text-lg font-semibold">
+                            {typeof item.percentage === "number" ? item.percentage.toFixed(1) : 0}%
+                          </span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-muted">
+                          <div
+                            className={`h-2 rounded-full transition-all duration-300 ${item.color}`}
+                            style={{
+                              width: `${Math.min(100, Math.max(0, typeof item.percentage === "number" ? item.percentage : 0))}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-muted-foreground">
+                <p>No bug risk distribution data available.</p>
+                <p className="text-sm mt-2">
+                  Upload a JSON file with quality.lowRisk, quality.mediumRisk, and quality.highRisk data.
+                </p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
